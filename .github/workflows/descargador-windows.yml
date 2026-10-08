@@ -44,8 +44,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release delete descargador-drive --yes --cleanup-tag || true
-          gh release create descargador-drive dist/DescargadorDrive.exe \
-            --target "${{ github.sha }}" \
-            --title "Descargador de Drive (última versión)" \
-            --notes "Descarga DescargadorDrive.exe y ábrelo. No necesita instalación."
+          # Se reutiliza el mismo release (en vez de borrarlo y crearlo) para
+          # que el link de descarga nunca deje de funcionar.
+          if gh release view descargador-drive > /dev/null 2>&1; then
+            gh release upload descargador-drive dist/DescargadorDrive.exe --clobber
+          else
+            gh release create descargador-drive dist/DescargadorDrive.exe \
+              --target "${{ github.sha }}" \
+              --title "Descargador de Drive (última versión)" \
+              --notes "Descarga DescargadorDrive.exe y ábrelo. No necesita instalación."
+          fi
+          gh release edit descargador-drive --draft=false --latest
+          gh release view descargador-drive --json isDraft,assets --jq '"borrador=\(.isDraft) archivos=\([.assets[].name] | join(","))"'
