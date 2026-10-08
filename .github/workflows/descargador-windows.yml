@@ -28,7 +28,8 @@ jobs:
 
       - name: Probar que la ventana abre
         working-directory: descargador_drive
-        run: python -c "import tkinter as tk, descargador_drive as d; d.load_config = lambda: {'api_key': 'AIza' + 'x' * 35}; r = tk.Tk(); a = d.App(r); a.set_percent(37.5); r.update(); assert a.key_label.get().startswith('AIza'); assert a.percent.get() == '37.5%'; a.set_percent(100); r.update(); assert a.percent.get() == '100%'; r.destroy(); print('ventana OK')"
+        run: |
+          python -c "import tkinter as tk, descargador_drive as d; d.load_config = lambda: {'api_key': 'AIza' + 'x' * 35}; r = tk.Tk(); a = d.App(r); a.set_percent(37.5); r.update(); assert a.key_label.get().startswith('AIza'); assert a.percent.get() == '37.5%'; a.set_percent(100); r.update(); assert a.percent.get() == '100%'; r.destroy(); print('ventana OK')"
 
       - name: Crear .exe
         run: pyinstaller --onefile --windowed --name DescargadorDrive descargador_drive/descargador_drive.py
