@@ -28,7 +28,15 @@ CREDENTIALS_URL = "https://console.cloud.google.com/apis/credentials"
 
 FONT = "Segoe UI" if os.name == "nt" else "DejaVu Sans"
 MONO = "Consolas" if os.name == "nt" else "DejaVu Sans Mono"
-WRAP = 600
+WRAP = 620      # ancho del texto del paso a paso (en píxeles a 100 %)
+MAXW = 900      # ancho máximo del contenido; si la ventana es más ancha, se centra
+MAXH = 800
+SCALE = 1.0     # escala de Windows (1.5 = 150 %); se calcula al abrir
+
+
+def px(v):
+    """Píxeles a la escala de la pantalla."""
+    return int(round(v * SCALE))
 
 # Colores. El texto secundario y el azul pasan 4.5:1 sobre su fondo, y el
 # botón azul lleva texto blanco a 5.6:1 en los dos modos.
@@ -132,45 +140,61 @@ def setup_styles(root, c):
                  foreground=c["success"])
 
     st.configure("TButton", background=c["button"], foreground=c["text"], borderwidth=0,
-                 padding=(14, 8), relief="flat")
+                 padding=(px(14), px(8)), relief="flat")
     st.map("TButton",
            background=[("disabled", c["track"]), ("pressed", c["button_hover"]),
                        ("active", c["button_hover"])],
            foreground=[("disabled", c["muted"])])
     st.configure("Accent.TButton", background=c["accent_fill"], foreground="#FFFFFF",
-                 font=(FONT, 10, "bold"), padding=(20, 9))
+                 font=(FONT, 10, "bold"), padding=(px(20), px(9)))
     st.map("Accent.TButton",
            background=[("disabled", c["track"]), ("pressed", c["accent_hover"]),
                        ("active", c["accent_hover"])],
            foreground=[("disabled", c["muted"])])
-    st.configure("Link.TButton", background=c["card"], foreground=c["accent"], padding=(0, 4))
+    st.configure("Link.TButton", background=c["card"], foreground=c["accent"], padding=(0, px(4)))
     st.map("Link.TButton", background=[("active", c["card"]), ("pressed", c["card"])])
-    st.configure("BgLink.TButton", background=c["bg"], foreground=c["accent"], padding=(0, 4))
+    st.configure("BgLink.TButton", background=c["bg"], foreground=c["accent"], padding=(0, px(4)))
     st.map("BgLink.TButton", background=[("active", c["bg"]), ("pressed", c["bg"])])
 
     st.configure("TEntry", fieldbackground=c["field"], foreground=c["text"],
                  insertcolor=c["text"], bordercolor=c["line"], lightcolor=c["line"],
-                 darkcolor=c["line"], padding=(8, 7))
+                 darkcolor=c["line"], padding=(px(8), px(7)))
     st.map("TEntry", bordercolor=[("focus", c["accent"])], lightcolor=[("focus", c["accent"])],
            darkcolor=[("focus", c["accent"])])
     st.configure("TSpinbox", fieldbackground=c["field"], foreground=c["text"],
                  background=c["button"], arrowcolor=c["text"], bordercolor=c["line"],
-                 lightcolor=c["line"], darkcolor=c["line"], insertcolor=c["text"], padding=4)
+                 lightcolor=c["line"], darkcolor=c["line"], insertcolor=c["text"], padding=px(4))
     st.configure("Vertical.TScrollbar", background=c["button"], troughcolor=c["field"],
                  bordercolor=c["field"], arrowcolor=c["muted"], lightcolor=c["button"],
                  darkcolor=c["button"])
     for name, color in (("Big", c["accent"]), ("Done", c["success"])):
         st.configure(f"{name}.Horizontal.TProgressbar", troughcolor=c["track"],
                      background=color, bordercolor=c["track"], lightcolor=color,
-                     darkcolor=color, thickness=12)
+                     darkcolor=color, thickness=px(12))
     return st
+
+
+def centered(root, padding, on_resize=None):
+    """Columna centrada en la ventana, con ancho y alto máximos."""
+    outer = ttk.Frame(root)
+    outer.pack(fill="both", expand=True)
+    frame = ttk.Frame(outer, padding=padding)
+
+    def place(event):
+        w, h = min(event.width, px(MAXW)), min(event.height, px(MAXH))
+        frame.place(relx=0.5, rely=0.5, anchor="center", width=w, height=h)
+        if on_resize:
+            on_resize(w)
+
+    outer.bind("<Configure>", place)
+    return outer, frame
 
 
 def card(parent, c, **grid):
     """Tarjeta con borde fino."""
     outer = tk.Frame(parent, bg=c["card"], highlightthickness=1,
                      highlightbackground=c["line"], highlightcolor=c["line"])
-    inner = ttk.Frame(outer, style="Card.TFrame", padding=20)
+    inner = ttk.Frame(outer, style="Card.TFrame", padding=px(20))
     inner.pack(fill="both", expand=True)
     outer.grid(**grid)
     return inner
@@ -192,7 +216,7 @@ def rounded(cv, x1, y1, x2, y2, r=8, **kw):
 
 def mark(cv, x1, y1, x2, y2, n=None):
     """Recuadro naranja alrededor de lo que hay que tocar."""
-    rounded(cv, x1 - 5, y1 - 5, x2 + 5, y2 + 5, r=10, outline=MARK, width=3, fill="")
+    rounded(cv, x1 - 5, y1 - 5, x2 + 5, y2 + 5, r=10, outline=MARK, width=px(3), fill="")
     if n is not None:
         cv.create_oval(x2 - 4, y1 - 16, x2 + 16, y1 + 4, fill=MARK, outline=MARK)
         cv.create_text(x2 + 6, y1 - 6, text=str(n), fill="#FFFFFF", font=(FONT, 9, "bold"))
@@ -218,9 +242,12 @@ def drive_logo(cv, x, y, s=1.0):
                       x + 10 * s, y + 17 * s, fill="#4285F4", outline="")
 
 
-def draw_screen(cv, kind, c):
+SCREEN_W, SCREEN_H = 600, 212
+
+
+def draw_screen(cv, kind, c, W=SCREEN_W):
     """Dibuja un estimado de la pantalla de Google Cloud de cada paso."""
-    W, H = int(cv["width"]), int(cv["height"])
+    H = SCREEN_H
     cv.delete("all")
     # Ventana del navegador
     rounded(cv, 2, 2, W - 2, H - 2, r=12, fill="#FFFFFF", outline=c["line"], width=1)
@@ -246,7 +273,7 @@ def draw_screen(cv, kind, c):
         cv.create_text(30, 88, anchor="w", text="Nuevo proyecto", fill="#202124",
                        font=(FONT, 12, "bold"))
         cv.create_text(30, 114, anchor="w", text="Nombre del proyecto *", fill="#5F6368", font=t)
-        rounded(cv, 30, 124, 330, 152, r=4, fill="#FFFFFF", outline="#1A73E8", width=2)
+        rounded(cv, 30, 124, 330, 152, r=4, fill="#FFFFFF", outline="#1A73E8", width=px(2))
         cv.create_text(42, 138, anchor="w", text="descargador", fill="#202124", font=t)
         mark(cv, 30, 124, 330, 152, 2)
         b = g_button(cv, 30, 168, "CREAR")
@@ -285,18 +312,18 @@ def draw_screen(cv, kind, c):
         rounded(cv, 60, 134, W - 110, 162, r=4, fill="#F8F9FA", outline="#DADCE0")
         cv.create_text(72, 148, anchor="w", text="AIzaSyB3x••••••••••••••••••••••••Qk",
                        fill="#202124", font=(MONO, 9))
-        cv.create_rectangle(W - 92, 138, W - 78, 154, outline="#1A73E8", width=2)
-        cv.create_rectangle(W - 88, 142, W - 74, 158, outline="#1A73E8", width=2,
+        cv.create_rectangle(W - 92, 138, W - 78, 154, outline="#1A73E8", width=px(2))
+        cv.create_rectangle(W - 88, 142, W - 74, 158, outline="#1A73E8", width=px(2),
                             fill="#FFFFFF")
         mark(cv, W - 96, 136, W - 70, 160, 4)
         g_button(cv, 60, H - 44, "CERRAR", filled=False)
     elif kind == "restrict":
         cv.create_text(30, 86, anchor="w", text="Restricciones de API", fill="#202124",
                        font=(FONT, 11, "bold"))
-        cv.create_oval(30, 100, 44, 114, outline="#5F6368", width=2)
+        cv.create_oval(30, 100, 44, 114, outline="#5F6368", width=px(2))
         cv.create_text(52, 107, anchor="w", text="No restringir clave", fill="#5F6368",
                        font=t)
-        cv.create_oval(30, 134, 44, 148, outline="#1A73E8", width=2)
+        cv.create_oval(30, 134, 44, 148, outline="#1A73E8", width=px(2))
         cv.create_oval(34, 138, 40, 144, fill="#1A73E8", outline="")
         cv.create_text(52, 141, anchor="w", text="Restringir clave", fill="#202124", font=t)
         mark(cv, 28, 132, 160, 150, 2)
@@ -307,21 +334,22 @@ def draw_screen(cv, kind, c):
         mark(cv, 232, 124, 488, 156, 3)
         b = g_button(cv, 30, H - 42, "GUARDAR")
         mark(cv, *b, None)
+    cv.scale("all", 0, 0, SCALE, SCALE)
 
 
-def draw_overview(cv, c):
+def draw_overview(cv, c, W=600):
     """Los cuatro pasos de un vistazo, para la pantalla de bienvenida."""
     labels = ["Crear un\nproyecto", "Activar\nDrive API", "Crear y copiar\nla clave",
               "Pegarla\naquí"]
-    W = int(cv["width"])
     gap = W / len(labels)
     for i, text in enumerate(labels):
         x = gap * i + gap / 2
         if i:
-            cv.create_line(x - gap + 22, 22, x - 22, 22, fill=c["line"], width=2)
+            cv.create_line(x - gap + 22, 22, x - 22, 22, fill=c["line"], width=px(2))
         cv.create_oval(x - 18, 4, x + 18, 40, fill=c["accent_fill"], outline="")
         cv.create_text(x, 22, text=str(i + 1), fill="#FFFFFF", font=(FONT, 12, "bold"))
         cv.create_text(x, 64, text=text, fill=c["text"], font=(FONT, 10), justify="center")
+    cv.scale("all", 0, 0, SCALE, SCALE)
 
 
 # --------------------------------------------------------------------------
@@ -375,7 +403,7 @@ STEPS = [
         "body": "Google te muestra la clave en una ventanita.\n"
                 "4.  Dale al botón de copiar que está a la derecha de la clave.",
         "screen": "key",
-        "hint": "La clave empieza con «AIza» y es larga. Si cerraste la ventanita, la puedes "
+        "hint": "La clave empieza con «AIza» (con i mayúscula) y es larga. Si cerraste la ventanita, la puedes "
                 "ver de nuevo en Credenciales → «Mostrar clave».",
         "next": "Ya la copié",
     },
@@ -418,18 +446,18 @@ class Wizard:
         self.key = tk.StringVar(value=app.api_key)
         self.checking = False
         self.message = None
-        self.frame = ttk.Frame(app.root, padding=(28, 22))
-        self.frame.pack(fill="both", expand=True)
+        self.wrap = px(WRAP)
+        self.outer, self.frame = centered(app.root, (px(28), px(22)), self.on_resize)
         self.frame.columnconfigure(0, weight=1)
-        self.frame.rowconfigure(1, weight=1)
+        self.frame.rowconfigure(2, weight=1)
 
         top = ttk.Frame(self.frame)
-        top.grid(row=0, column=0, sticky="ew", pady=(0, 14))
+        top.grid(row=0, column=0, sticky="ew", pady=(0, px(14)))
         ttk.Label(top, text=APP_NAME, font=(FONT, 11, "bold")).pack(side="left")
         if can_cancel:
             ttk.Button(top, text="Cancelar", style="BgLink.TButton",
-                       command=self.app.show_main).pack(side="right", padx=(12, 0))
-        self.dots = tk.Canvas(top, height=10, width=KEY_STEP * 16, bg=self.c["bg"],
+                       command=self.app.show_main).pack(side="right", padx=(px(12), 0))
+        self.dots = tk.Canvas(top, height=px(10), width=px(KEY_STEP * 16), bg=self.c["bg"],
                               highlightthickness=0)
         self.dots.pack(side="right")
 
@@ -437,7 +465,7 @@ class Wizard:
         self.body.columnconfigure(0, weight=1)
 
         nav = ttk.Frame(self.frame)
-        nav.grid(row=2, column=0, sticky="ew", pady=(16, 0))
+        nav.grid(row=3, column=0, sticky="sew", pady=(px(16), 0))
         self.back_btn = ttk.Button(nav, text="←  Atrás", command=self.back)
         self.next_btn = ttk.Button(nav, style="Accent.TButton", command=self.next)
         self.next_btn.pack(side="right")
@@ -445,7 +473,18 @@ class Wizard:
         self.render()
 
     def destroy(self):
-        self.frame.destroy()
+        self.outer.destroy()
+
+    def base_w(self):
+        """Ancho de los dibujos (a 100 %): todo el ancho de la tarjeta."""
+        return max(SCREEN_W, int(self.wrap / SCALE))
+
+    def on_resize(self, width):
+        # El texto ocupa el ancho de la tarjeta, sin pasarse de unas 80 letras por línea.
+        wrap = max(px(360), min(width - px(28 + 20) * 2 - 4, px(WRAP + 120)))
+        if abs(wrap - self.wrap) > px(12):
+            self.wrap = wrap
+            self.render()
 
     def render(self):
         s = STEPS[self.step]
@@ -456,47 +495,48 @@ class Wizard:
         eyebrow = s.get("eyebrow") or f"PASO {self.step} DE {KEY_STEP}"
         ttk.Label(self.body, text=eyebrow, style="Eyebrow.TLabel").grid(
             row=0, column=0, columnspan=2, sticky="w")
-        ttk.Label(self.body, text=s["title"], style="WizardTitle.TLabel", wraplength=WRAP,
-                  justify="left").grid(row=1, column=0, columnspan=2, sticky="w", pady=(4, 10))
-        ttk.Label(self.body, text=s["body"], style="Body.TLabel", wraplength=WRAP,
+        ttk.Label(self.body, text=s["title"], style="WizardTitle.TLabel", wraplength=self.wrap,
+                  justify="left").grid(row=1, column=0, columnspan=2, sticky="w", pady=(px(4), px(10)))
+        ttk.Label(self.body, text=s["body"], style="Body.TLabel", wraplength=self.wrap,
                   justify="left").grid(row=2, column=0, columnspan=2, sticky="w")
         row = 3
         if "link" in s:
             text, url = s["link"]
             ttk.Button(self.body, text=text + "  ↗", style="Accent.TButton",
                        command=lambda: webbrowser.open(url)).grid(
-                row=row, column=0, sticky="w", pady=(14, 0))
+                row=row, column=0, sticky="w", pady=(px(14), 0))
             row += 1
         if s.get("overview"):
-            cv = tk.Canvas(self.body, width=WRAP, height=96, bg=self.c["card"],
+            cv = tk.Canvas(self.body, width=px(self.base_w()), height=px(96), bg=self.c["card"],
                            highlightthickness=0)
-            cv.grid(row=row, column=0, columnspan=2, sticky="w", pady=(24, 0))
-            draw_overview(cv, self.c)
+            cv.grid(row=row, column=0, columnspan=2, sticky="w", pady=(px(24), 0))
+            draw_overview(cv, self.c, self.base_w())
             row += 1
         if "screen" in s:
-            cv = tk.Canvas(self.body, width=WRAP, height=212, bg=self.c["card"],
+            cv = tk.Canvas(self.body, width=px(self.base_w()), height=px(SCREEN_H),
+                           bg=self.c["card"],
                            highlightthickness=0)
-            cv.grid(row=row, column=0, columnspan=2, sticky="w", pady=(16, 0))
-            draw_screen(cv, s["screen"], self.c)
+            cv.grid(row=row, column=0, columnspan=2, sticky="w", pady=(px(16), 0))
+            draw_screen(cv, s["screen"], self.c, self.base_w())
             ttk.Label(self.body, style="Card.Muted.TLabel", font=(FONT, 9),
                       text="Así se ve más o menos. Puede cambiar un poco según tu cuenta."
-                      ).grid(row=row + 1, column=0, columnspan=2, sticky="w", pady=(4, 0))
+                      ).grid(row=row + 1, column=0, columnspan=2, sticky="w", pady=(px(4), 0))
             row += 2
         if s.get("entry"):
             entry = ttk.Entry(self.body, textvariable=self.key, font=(MONO, 11))
-            entry.grid(row=row, column=0, sticky="ew", pady=(16, 0))
+            entry.grid(row=row, column=0, sticky="ew", pady=(px(16), 0))
             entry.bind("<Return>", lambda e: self.next())
             entry.focus_set()
             ttk.Button(self.body, text="Pegar", command=self.paste).grid(
-                row=row, column=1, padx=(8, 0), pady=(16, 0))
+                row=row, column=1, padx=(px(8), 0), pady=(px(16), 0))
             self.message = ttk.Label(self.body, text="", style="Card.Muted.TLabel",
-                                     wraplength=WRAP, justify="left")
-            self.message.grid(row=row + 1, column=0, columnspan=2, sticky="w", pady=(10, 0))
+                                     wraplength=self.wrap, justify="left")
+            self.message.grid(row=row + 1, column=0, columnspan=2, sticky="w", pady=(px(10), 0))
             row += 2
         if s.get("hint"):
-            ttk.Label(self.body, text=s["hint"], style="Card.Muted.TLabel", wraplength=WRAP,
+            ttk.Label(self.body, text=s["hint"], style="Card.Muted.TLabel", wraplength=self.wrap,
                       justify="left").grid(row=row, column=0, columnspan=2, sticky="w",
-                                           pady=(12, 0))
+                                           pady=(px(12), 0))
 
         self.next_btn.configure(text=s["next"] + "  →", state="normal")
         if 0 < self.step < len(STEPS) - 1:
@@ -505,7 +545,7 @@ class Wizard:
             self.back_btn.pack_forget()
         if s.get("skip"):
             self.skip_btn.configure(text=s["skip"])
-            self.skip_btn.pack(side="right", padx=8)
+            self.skip_btn.pack(side="right", padx=px(8))
         else:
             self.skip_btn.pack_forget()
         self.draw_dots()
@@ -517,7 +557,7 @@ class Wizard:
         for i in range(KEY_STEP):
             x = 3 + i * 16
             color = self.c["accent"] if i < self.step else self.c["track"]
-            self.dots.create_oval(x, 1, x + 8, 9, fill=color, outline=color)
+            self.dots.create_oval(px(x), px(1), px(x + 8), px(9), fill=color, outline=color)
 
     def show_message(self, text, kind="muted"):
         if self.message is not None:
@@ -574,9 +614,9 @@ class Wizard:
         self.step = KEY_STEP + 1
         self.render()
         if ok is None:
-            ttk.Label(self.body, style="Card.Muted.TLabel", wraplength=WRAP, justify="left",
+            ttk.Label(self.body, style="Card.Muted.TLabel", wraplength=self.wrap, justify="left",
                       text=f"{reason} La guardé igual; si no funciona, cámbiala desde la "
-                           "ventana principal.").grid(row=9, column=0, sticky="w", pady=(16, 0))
+                           "ventana principal.").grid(row=9, column=0, sticky="w", pady=(px(16), 0))
 
 
 # --------------------------------------------------------------------------
@@ -586,6 +626,8 @@ class Wizard:
 class App:
     def __init__(self, root):
         self.root = root
+        global SCALE
+        SCALE = max(1.0, root.winfo_fpixels("1i") / 96.0)
         self.colors = DARK if system_is_dark() else LIGHT
         setup_styles(root, self.colors)
         if self.colors is DARK:
@@ -604,8 +646,10 @@ class App:
         self.workers = tk.IntVar(value=cfg.get("workers", 3))
 
         root.title(APP_NAME)
-        root.geometry("760x740")
-        root.minsize(700, 680)
+        w = min(px(820), root.winfo_screenwidth() - px(40))
+        h = min(px(700), root.winfo_screenheight() - px(90))
+        root.geometry(f"{w}x{h}")
+        root.resizable(False, False)  # tamaño fijo: sin agrandar ni maximizar
         root.protocol("WM_DELETE_WINDOW", self.on_close)
 
         if self.api_key:
@@ -632,15 +676,14 @@ class App:
 
     def build_main(self):
         c = self.colors
-        main = ttk.Frame(self.root, padding=(26, 22))
-        main.pack(fill="both", expand=True)
+        outer, main = centered(self.root, (px(26), px(22)))
         main.columnconfigure(0, weight=1)
         main.rowconfigure(3, weight=1)
 
         ttk.Label(main, text=APP_NAME, style="Title.TLabel").grid(row=0, column=0, sticky="w")
         ttk.Label(main, style="Muted.TLabel",
                   text="Baja carpetas completas de Google Drive, aunque pesen miles de GB."
-                  ).grid(row=1, column=0, sticky="w", pady=(2, 16))
+                  ).grid(row=1, column=0, sticky="w", pady=(px(2), px(16)))
 
         # Qué y dónde
         what = card(main, c, row=2, column=0, sticky="ew")
@@ -648,35 +691,35 @@ class App:
         ttk.Label(what, text="Link de la carpeta de Drive", style="Section.TLabel").grid(
             row=0, column=0, columnspan=2, sticky="w")
         self.link_entry = ttk.Entry(what, textvariable=self.link)
-        self.link_entry.grid(row=1, column=0, sticky="ew", pady=(6, 0))
+        self.link_entry.grid(row=1, column=0, sticky="ew", pady=(px(6), 0))
         self.link_entry.bind("<Return>", lambda e: self.start())
         ttk.Button(what, text="Pegar", command=self.paste_link).grid(
-            row=1, column=1, padx=(8, 0), pady=(6, 0))
+            row=1, column=1, padx=(px(8), 0), pady=(px(6), 0))
         self.link_error = ttk.Label(what, text="", style="Card.Danger.TLabel")
         self.link_error.grid(row=2, column=0, columnspan=2, sticky="w")
 
         ttk.Label(what, text="Guardar en", style="Section.TLabel").grid(
-            row=3, column=0, columnspan=2, sticky="w", pady=(10, 0))
+            row=3, column=0, columnspan=2, sticky="w", pady=(px(10), 0))
         self.dest_label = ttk.Label(what, style="Card.Muted.TLabel")
-        self.dest_label.grid(row=4, column=0, sticky="w", pady=(4, 0))
+        self.dest_label.grid(row=4, column=0, sticky="w", pady=(px(4), 0))
         ttk.Button(what, text="Cambiar…", command=self.pick_dest).grid(
-            row=4, column=1, padx=(8, 0), pady=(4, 0))
+            row=4, column=1, padx=(px(8), 0), pady=(px(4), 0))
         self.update_dest_label()
 
         actions = ttk.Frame(what, style="Card.TFrame")
-        actions.grid(row=5, column=0, columnspan=2, sticky="ew", pady=(18, 0))
+        actions.grid(row=5, column=0, columnspan=2, sticky="ew", pady=(px(18), 0))
         self.start_btn = ttk.Button(actions, text="Descargar carpeta", style="Accent.TButton",
                                     command=self.start)
         self.start_btn.pack(side="left")
         self.stop_btn = ttk.Button(actions, text="Detener", command=self.stop)
-        self.stop_btn.pack(side="left", padx=8)
+        self.stop_btn.pack(side="left", padx=px(8))
         ttk.Spinbox(actions, from_=1, to=8, width=3, textvariable=self.workers).pack(
             side="right")
         ttk.Label(actions, text="Descargas a la vez", style="Card.Muted.TLabel").pack(
-            side="right", padx=(0, 8))
+            side="right", padx=(0, px(8)))
 
         # Progreso
-        prog = card(main, c, row=3, column=0, sticky="new", pady=(14, 0))
+        prog = card(main, c, row=3, column=0, sticky="new", pady=(px(14), 0))
         prog.columnconfigure(0, weight=1)
         prog.rowconfigure(5, weight=1)
         head = ttk.Frame(prog, style="Card.TFrame")
@@ -687,15 +730,15 @@ class App:
         self.status = ttk.Label(head, text="Pega un link para empezar.", style="Status.TLabel")
         self.status.grid(row=0, column=1, sticky="e")
         self.progress = ttk.Progressbar(prog, maximum=1000, style="Big.Horizontal.TProgressbar")
-        self.progress.grid(row=1, column=0, sticky="ew", pady=(6, 10))
-        self.detail = ttk.Label(prog, text="", style="Card.Muted.TLabel", wraplength=640,
+        self.progress.grid(row=1, column=0, sticky="ew", pady=(px(6), px(10)))
+        self.detail = ttk.Label(prog, text="", style="Card.Muted.TLabel", wraplength=px(640),
                                 justify="left")
         self.detail.grid(row=2, column=0, sticky="w")
         self.current = ttk.Label(prog, text="", style="Card.Muted.TLabel")
         self.current.grid(row=3, column=0, sticky="w")
 
         bar = ttk.Frame(prog, style="Card.TFrame")
-        bar.grid(row=4, column=0, sticky="ew", pady=(8, 0))
+        bar.grid(row=4, column=0, sticky="ew", pady=(px(8), 0))
         self.log_btn = ttk.Button(bar, text="▸  Ver detalles", style="Link.TButton",
                                   command=self.toggle_log)
         self.log_btn.pack(side="left")
@@ -705,7 +748,7 @@ class App:
         self.log_text = tk.Text(self.log_frame, height=8, state="disabled", wrap="word",
                                 font=(MONO, 9), bg=c["field"], fg=c["muted"], relief="flat",
                                 highlightthickness=1, highlightbackground=c["line"],
-                                padx=8, pady=6)
+                                padx=px(8), pady=px(6))
         scroll = ttk.Scrollbar(self.log_frame, command=self.log_text.yview)
         self.log_text.configure(yscrollcommand=scroll.set)
         self.log_text.pack(side="left", fill="both", expand=True)
@@ -713,16 +756,16 @@ class App:
 
         # Pie: la API key
         foot = ttk.Frame(main)
-        foot.grid(row=4, column=0, sticky="ew", pady=(12, 0))
+        foot.grid(row=4, column=0, sticky="ew", pady=(px(12), 0))
         self.key_label = ttk.Label(foot, style="Muted.TLabel")
         self.key_label.pack(side="left")
         ttk.Button(foot, text="Cambiar API key", style="BgLink.TButton",
-                   command=lambda: self.show_wizard(KEY_STEP)).pack(side="left", padx=10)
+                   command=lambda: self.show_wizard(KEY_STEP)).pack(side="left", padx=px(10))
         self.update_key_label()
 
         self.set_running(bool(self.thread and self.thread.is_alive()))
         self.link_entry.focus_set()
-        return main
+        return outer
 
     # -- ayudas ----------------------------------------------------------------
 
@@ -768,7 +811,7 @@ class App:
         if show is None:
             show = not visible
         if show and not visible:
-            self.log_frame.grid(row=5, column=0, sticky="nsew", pady=(6, 0))
+            self.log_frame.grid(row=5, column=0, sticky="nsew", pady=(px(6), 0))
             self.log_btn.configure(text="▾  Ocultar detalles")
         elif not show and visible:
             self.log_frame.grid_forget()
