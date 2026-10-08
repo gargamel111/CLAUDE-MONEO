@@ -7,6 +7,8 @@ con todas sus subcarpetas, pese lo que pese.
 2. Elige dónde guardarla.
 3. Dale a **Descargar**.
 
+La primera vez te pide tu API key de Google (ver abajo).
+
 ## Descargar el programa
 
 Ve a la pestaña **Releases** del repositorio y baja `DescargadorDrive.exe`.
@@ -38,27 +40,18 @@ elegida.
 
 Tiene que estar compartida como **"Cualquier persona con el enlace"**.
 
-## API key (opcional)
+## API key de Google
 
-Sin API key funciona, pero Drive podría mostrar solo los primeros 50
-elementos de cada carpeta. Si una carpeta tiene más, pon una API key en
-**Opciones avanzadas**. Es gratis:
+La primera vez que abres el programa te pide tu API key. Cada persona usa la
+suya: es gratis, se saca una sola vez y queda guardada solo en esa compu. Con
+ella el programa ve todos los archivos de cada carpeta, sin el límite de 50.
 
-1. Entra a <https://console.cloud.google.com/>, crea un proyecto y activa
+1. Entra a <https://console.cloud.google.com/>, crea un proyecto y habilita
    **Google Drive API**.
 2. Ve a **APIs y servicios → Credenciales → Crear credenciales → Clave de API**.
-3. Copia la clave en el programa. Se guarda para la próxima vez.
-
-### Incluir la API key en el .exe
-
-Para no tener que pegarla, guárdala como secreto en GitHub: **Settings →
-Secrets and variables → Actions → New repository secret**, con el nombre
-`DRIVE_API_KEY`. Luego, en **Actions**, vuelve a correr el workflow
-"Compilar Descargador de Drive (Windows)". El nuevo .exe la trae incluida.
-
-La clave nunca queda en el código del repo. Pero el .exe de Releases es
-público y alguien podría sacarla de ahí, así que restríngela a
-"Google Drive API" en Google Cloud.
+3. Recomendado: edita la clave → **Restringir clave** → marca solo
+   **Google Drive API**.
+4. Pégala en el programa. Para cambiarla después, usa el botón **Cambiar…**.
 
 ## Correrlo con Python (sin el .exe)
 

@@ -3,19 +3,28 @@
 import json
 import os
 import queue
+import re
 import threading
+import webbrowser
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
 import drive_core
 
-try:
-    # Lo crea GitHub Actions al compilar, a partir del secreto DRIVE_API_KEY.
-    from _clave_incluida import API_KEY as CLAVE_INCLUIDA
-except ImportError:
-    CLAVE_INCLUIDA = ""
-
 APP_NAME = "Descargador de Drive"
+CLOUD_URL = "https://console.cloud.google.com/apis/library/drive.googleapis.com"
+KEY_RE = re.compile(r"AIza[0-9A-Za-z_-]{35}")
+KEY_HELP = (
+    "Para bajar carpetas completas, sin límite de archivos, el programa usa una "
+    "API key de Google. Es gratis, se saca una sola vez y queda guardada solo en "
+    "esta compu. No da acceso a tu cuenta ni a tu correo.\n\n"
+    "Cómo sacarla (unos 2 minutos):\n"
+    "1. Dale a \"Abrir Google Cloud\", entra con tu cuenta y crea un proyecto "
+    "(cualquier nombre).\n"
+    "2. Dale a \"Habilitar\" en Google Drive API.\n"
+    "3. Ve a APIs y servicios → Credenciales → Crear credenciales → Clave de API.\n"
+    "4. Recomendado: edita la clave → Restringir clave → marca solo Google Drive API.\n"
+    "5. Copia la clave y pégala aquí abajo.")
 CONFIG = os.path.join(os.environ.get("APPDATA") or os.path.expanduser("~"),
                       "descargador_drive.json")
 
@@ -65,23 +74,20 @@ class App:
                                                      padx=(8, 4), pady=4)
         ttk.Button(main, text="Elegir…", command=self.pick_dest).grid(row=1, column=2)
 
-        adv = ttk.LabelFrame(main, text="Opciones avanzadas (opcional)", padding=8)
+        adv = ttk.LabelFrame(main, text="Configuración", padding=8)
         adv.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(8, 4))
         adv.columnconfigure(1, weight=1)
         ttk.Label(adv, text="API key de Google:").grid(row=0, column=0, sticky="w")
-        self.api_key = tk.StringVar(value=cfg.get("api_key", ""))
-        ttk.Entry(adv, textvariable=self.api_key, show="•").grid(row=0, column=1, sticky="ew",
-                                                                 padx=8)
-        ttk.Label(adv, text="Descargas a la vez:").grid(row=0, column=2, sticky="w")
+        self.api_key = cfg.get("api_key", "")
+        self.key_label = tk.StringVar()
+        ttk.Label(adv, textvariable=self.key_label).grid(row=0, column=1, sticky="w", padx=8)
+        ttk.Button(adv, text="Cambiar…", command=self.ask_api_key).grid(row=0, column=2,
+                                                                        padx=(0, 16))
+        ttk.Label(adv, text="Descargas a la vez:").grid(row=0, column=3, sticky="w")
         self.workers = tk.IntVar(value=cfg.get("workers", 3))
         ttk.Spinbox(adv, from_=1, to=8, width=4, textvariable=self.workers).grid(
-            row=0, column=3, padx=(8, 0))
-        hint = ("Este programa ya trae una API key incluida: deja el campo vacío para usarla."
-                if CLAVE_INCLUIDA else
-                "Sin API key funciona igual. Úsala si la carpeta tiene muchísimos "
-                "archivos por carpeta (más de 50).")
-        ttk.Label(adv, foreground="#666", text=hint).grid(
-            row=1, column=0, columnspan=4, sticky="w", pady=(4, 0))
+            row=0, column=4, padx=(8, 0))
+        self.update_key_label()
 
         buttons = ttk.Frame(main)
         buttons.grid(row=3, column=0, columnspan=3, sticky="ew", pady=8)
@@ -121,6 +127,63 @@ class App:
 
         root.protocol("WM_DELETE_WINDOW", self.on_close)
         self.tick()
+        if not self.api_key:
+            root.after(300, self.ask_api_key)
+
+    # -- API key ---------------------------------------------------------------
+
+    def update_key_label(self):
+        k = self.api_key
+        self.key_label.set(f"{k[:4]}…{k[-4:]} (guardada)" if k else "Falta poner tu API key")
+
+    def save_settings(self):
+        try:
+            workers = max(1, min(8, int(self.workers.get())))
+        except (tk.TclError, ValueError):
+            workers = 3
+        save_config({"dest": self.dest.get().strip(), "api_key": self.api_key,
+                     "workers": workers})
+        return workers
+
+    def ask_api_key(self):
+        """Ventana para pegar la API key. Devuelve True si quedó guardada."""
+        win = tk.Toplevel(self.root)
+        win.title("Tu API key de Google")
+        win.transient(self.root)
+        win.resizable(False, False)
+        frame = ttk.Frame(win, padding=16)
+        frame.pack(fill="both", expand=True)
+        ttk.Label(frame, text=KEY_HELP, wraplength=520, justify="left").pack(anchor="w")
+        ttk.Button(frame, text="Abrir Google Cloud",
+                   command=lambda: webbrowser.open(CLOUD_URL)).pack(anchor="w", pady=(10, 12))
+        ttk.Label(frame, text="API key:").pack(anchor="w")
+        value = tk.StringVar(value=self.api_key)
+        entry = ttk.Entry(frame, textvariable=value, width=60)
+        entry.pack(fill="x", pady=(2, 12))
+        entry.focus()
+        saved = []
+
+        def save(*_):
+            key = re.sub(r"\s+", "", value.get())
+            if not KEY_RE.fullmatch(key):
+                messagebox.showwarning(
+                    APP_NAME, "Eso no parece una API key de Google.\n\nEmpiezan con \"AIza\" "
+                              "y tienen 39 caracteres. Cópiala completa.", parent=win)
+                return
+            self.api_key = key
+            self.save_settings()
+            self.update_key_label()
+            saved.append(True)
+            win.destroy()
+
+        buttons = ttk.Frame(frame)
+        buttons.pack(fill="x")
+        ttk.Button(buttons, text="Guardar", command=save).pack(side="right")
+        ttk.Button(buttons, text="Cancelar", command=win.destroy).pack(side="right", padx=8)
+        entry.bind("<Return>", save)
+        win.grab_set()
+        self.root.wait_window(win)
+        return bool(saved)
 
     # -- acciones --------------------------------------------------------------
 
@@ -140,17 +203,14 @@ class App:
             return messagebox.showwarning(APP_NAME, "Pega el link de la carpeta de Drive.")
         if not dest:
             return messagebox.showwarning(APP_NAME, "Elige dónde guardar.")
+        if not self.api_key and not self.ask_api_key():
+            return
+        workers = self.save_settings()
         try:
-            workers = max(1, min(8, int(self.workers.get())))
-        except (tk.TclError, ValueError):
-            workers = 3
-        try:
-            key = self.api_key.get().strip() or CLAVE_INCLUIDA
-            self.downloader = drive_core.Downloader(link, dest, key, workers,
+            self.downloader = drive_core.Downloader(link, dest, self.api_key, workers,
                                                     log=self.logs.put)
         except ValueError as e:
             return messagebox.showerror(APP_NAME, str(e))
-        save_config({"dest": dest, "api_key": self.api_key.get().strip(), "workers": workers})
 
         self.start_btn.configure(state="disabled")
         self.stop_btn.configure(state="normal")

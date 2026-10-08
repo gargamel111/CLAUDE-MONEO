@@ -798,10 +798,21 @@ def _check_api(r):
 
 
 def _api_error(r):
+    text = r.text
+    if "API key not valid" in text or "API_KEY_INVALID" in text:
+        return "La API key no es válida. Revisa que la copiaste completa (botón 'Cambiar…')."
+    if "SERVICE_DISABLED" in text or "has not been used in project" in text:
+        return ("Tu API key funciona, pero falta habilitar 'Google Drive API' en tu proyecto "
+                "de Google Cloud. Habilítala, espera un par de minutos y vuelve a intentar.")
+    if "API_KEY_SERVICE_BLOCKED" in text or "are blocked" in text:
+        return ("Tu API key está restringida a otra API. En Google Cloud, edítala y marca "
+                "'Google Drive API' en las restricciones.")
     try:
         msg = r.json()["error"]["message"]
     except Exception:
-        msg = r.text[:200]
+        msg = text[:200]
+    if r.status_code == 404:
+        msg += " (¿la carpeta está compartida como 'Cualquier persona con el enlace'?)"
     return f"HTTP {r.status_code}: {msg}"
 
 

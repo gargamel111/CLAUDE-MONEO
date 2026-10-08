@@ -23,24 +23,12 @@ jobs:
       - name: Instalar dependencias
         run: pip install -r descargador_drive/requirements.txt pyinstaller
 
-      - name: Incluir API key (secreto DRIVE_API_KEY)
-        shell: bash
-        env:
-          DRIVE_API_KEY: ${{ secrets.DRIVE_API_KEY }}
-        run: |
-          if [ -n "$DRIVE_API_KEY" ]; then
-            printf 'API_KEY = "%s"\n' "$DRIVE_API_KEY" > descargador_drive/_clave_incluida.py
-            echo "API key incluida en el programa."
-          else
-            echo "No hay secreto DRIVE_API_KEY: el programa sale sin API key incluida."
-          fi
-
       - name: Pruebas
         run: python -m unittest discover -s descargador_drive/tests -v
 
       - name: Probar que la ventana abre
         working-directory: descargador_drive
-        run: python -c "import tkinter as tk, descargador_drive as d; r = tk.Tk(); a = d.App(r); a.set_percent(37.5); r.update(); assert a.percent.get() == '37.5%'; a.set_percent(100); r.update(); assert a.percent.get() == '100%'; r.destroy(); print('ventana OK')"
+        run: python -c "import tkinter as tk, descargador_drive as d; d.load_config = lambda: {'api_key': 'AIza' + 'x' * 35}; r = tk.Tk(); a = d.App(r); a.set_percent(37.5); r.update(); assert a.key_label.get().startswith('AIza'); assert a.percent.get() == '37.5%'; a.set_percent(100); r.update(); assert a.percent.get() == '100%'; r.destroy(); print('ventana OK')"
 
       - name: Crear .exe
         run: pyinstaller --onefile --windowed --name DescargadorDrive descargador_drive/descargador_drive.py
