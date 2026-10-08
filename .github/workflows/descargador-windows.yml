@@ -26,8 +26,20 @@ jobs:
       - name: Pruebas
         run: python -m unittest discover -s descargador_drive/tests -v
 
+      - name: Probar que la ventana abre
+        timeout-minutes: 3
+        run: python descargador_drive/descargador_drive.py --smoke
+
       - name: Crear .exe
-        run: pyinstaller --onefile --windowed --name DescargadorDrive descargador_drive/descargador_drive.py
+        run: pyinstaller --onefile --windowed --name DescargadorDrive --add-data "descargador_drive/ui;ui" --collect-all webview descargador_drive/descargador_drive.py
+
+      - name: Probar que el .exe abre
+        timeout-minutes: 3
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath dist/DescargadorDrive.exe -ArgumentList "--smoke" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "El .exe no abrió bien (código $($p.ExitCode))" }
+          Write-Host "El .exe abre bien"
 
       - uses: actions/upload-artifact@v4
         with:

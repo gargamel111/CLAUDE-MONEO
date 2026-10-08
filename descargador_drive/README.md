@@ -9,9 +9,9 @@ con todas sus subcarpetas, pese lo que pese.
 
 La primera vez te guía paso a paso para sacar tu API key de Google (ver abajo).
 
-| Paso a paso | Descargando |
+| Descargando | Paso a paso |
 | --- | --- |
-| ![Paso a paso](capturas/claro-paso3.png) | ![Descargando](capturas/claro-principal-descargando.png) |
+| ![Descargando](capturas/descargando.png) | ![Paso a paso](capturas/paso-drive-api.png) |
 
 ## Descargar el programa
 
@@ -67,3 +67,10 @@ python descargador_drive.py
 ```
 
 Pruebas: `python -m unittest discover -s tests`
+
+## Cómo está hecho
+
+- `drive_core.py`: lista la carpeta y descarga (reanuda, reintenta).
+- `app_api.py`: lo que la ventana le pide al programa (empezar, pausar, progreso…).
+- `ui/`: la ventana (HTML, CSS y JavaScript) que se muestra con pywebview,
+  usando el motor de Edge que ya trae Windows. Tipografía Inter (licencia OFL).

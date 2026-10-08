@@ -10,6 +10,7 @@ Diseñado para no rendirse nunca:
     mismo link y la misma carpeta continúa donde se quedó.
 """
 
+import collections
 import errno
 import html
 import os
@@ -181,6 +182,9 @@ class Stats:
         self.session_bytes = 0
         self.active = {}  # id -> (nombre, bajado, total)
         self.sizes_known = False  # con API key se sabe el tamaño de todo desde el inicio
+        self.root_name = ""
+        self.active_folder = {}  # id -> subcarpeta del archivo que se está bajando
+        self.completed = collections.deque(maxlen=60)  # últimos archivos terminados
         self._speed_samples = []
 
     def percent(self):
@@ -203,6 +207,7 @@ class Stats:
             self.session_bytes += n
             self.done_bytes += n
             self.active[item.id] = (item.name, written, total)
+            self.active_folder[item.id] = "/".join(item.folder)
 
     def speed(self):
         now = time.monotonic()
@@ -617,6 +622,8 @@ class Downloader:
         with self.stats.lock:
             self.stats.done_files += 1
             self.stats.active.pop(it.id, None)
+            self.stats.completed.append({"name": it.name, "folder": "/".join(it.folder),
+                                         "size": os.path.getsize(final)})
         self.log(f"✔ {'/'.join(it.folder + [it.name])}")
 
     def _worker(self, tasks):
@@ -689,6 +696,7 @@ class Downloader:
                 self.log(f"Iniciando descarga de {self.root_id}")
                 try:
                     root_name, files = self.list_all()
+                    self.stats.root_name = root_name or ""
                 except HardError as e:
                     with self.stats.lock:
                         self.stats.phase = "Error"
