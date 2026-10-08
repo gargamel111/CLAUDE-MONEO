@@ -86,8 +86,15 @@ class App:
         self.status = tk.StringVar(value="Pega un link y dale a Descargar.")
         ttk.Label(main, textvariable=self.status, font=("Segoe UI", 10, "bold")).grid(
             row=4, column=0, columnspan=3, sticky="w")
-        self.progress = ttk.Progressbar(main, maximum=1000)
-        self.progress.grid(row=5, column=0, columnspan=3, sticky="ew", pady=4)
+        bar = ttk.Frame(main)
+        bar.grid(row=5, column=0, columnspan=3, sticky="ew", pady=4)
+        bar.columnconfigure(0, weight=1)
+        ttk.Style().configure("Grande.Horizontal.TProgressbar", thickness=26)
+        self.progress = ttk.Progressbar(bar, maximum=1000, style="Grande.Horizontal.TProgressbar")
+        self.progress.grid(row=0, column=0, sticky="ew")
+        self.percent = tk.StringVar(value="0%")
+        ttk.Label(bar, textvariable=self.percent, width=7, anchor="e",
+                  font=("Segoe UI", 14, "bold")).grid(row=0, column=1, padx=(8, 0))
         self.detail = tk.StringVar()
         ttk.Label(main, textvariable=self.detail).grid(row=6, column=0, columnspan=3, sticky="w")
         self.current = tk.StringVar()
@@ -138,7 +145,7 @@ class App:
 
         self.start_btn.configure(state="disabled")
         self.stop_btn.configure(state="normal")
-        self.progress.configure(value=0)
+        self.set_percent(0)
         self.thread = threading.Thread(target=self._run, args=(self.downloader,), daemon=True)
         self.thread.start()
 
@@ -175,6 +182,12 @@ class App:
         self.log_text.see("end")
         self.log_text.configure(state="disabled")
 
+    def set_percent(self, pct):
+        self.progress.configure(value=pct * 10)
+        text = f"{int(pct)}%" if pct >= 100 or pct == 0 else f"{pct:.1f}%"
+        self.percent.set(text)
+        self.root.title(f"{text} – {APP_NAME}")
+
     def finish(self):
         self.start_btn.configure(state="normal")
         self.stop_btn.configure(state="disabled")
@@ -200,7 +213,7 @@ class App:
                                       "\n\nDale a Descargar otra vez para reintentarlos.")
                     else:
                         self.status.set("¡Listo! Todo descargado.")
-                        self.progress.configure(value=1000)
+                        self.set_percent(100)
                 else:
                     self.append_log(msg)
         except queue.Empty:
@@ -214,22 +227,18 @@ class App:
                 phase, total, done = s.phase, s.total_files, s.done_files
                 tb, db, failed = s.total_bytes, s.done_bytes, len(s.failed)
                 active = list(s.active.values())
+            pct = s.percent()
+            self.set_percent(pct)
             if phase == "Descargando":
-                if tb:
-                    frac = min(1.0, db / tb)
-                    self.status.set(f"Descargando… {frac * 100:.1f}%")
-                else:
-                    frac = done / total if total else 0
-                    self.status.set(f"Descargando… {done} de {total}")
-                self.progress.configure(value=frac * 1000)
+                self.status.set(f"Descargando… {done} de {total} archivos")
                 eta = ""
-                if tb and speed > 0 and db < tb:
+                if s.sizes_known and tb and speed > 0 and db < tb:
                     secs = int((tb - db) / speed)
                     eta = f" · Falta ≈ {secs // 3600}h {secs % 3600 // 60}m"
                 self.detail.set(
                     f"Archivos: {done}/{total}" + (f" · Fallidos: {failed}" if failed else "")
                     + f" · {drive_core.human_size(db)}"
-                    + (f" de {drive_core.human_size(tb)}" if tb else "")
+                    + (f" de {drive_core.human_size(tb)}" if s.sizes_known and tb else "")
                     + f" · {drive_core.human_size(speed)}/s{eta}")
                 self.current.set("  |  ".join(
                     f"{n} ({drive_core.human_size(w)}"
@@ -237,7 +246,6 @@ class App:
                     for n, w, t in active[:3]))
             else:
                 self.status.set(phase)
-                self.progress.step(20)  # se mueve para que se note que trabaja
         self.root.after(500, self.tick)
 
 

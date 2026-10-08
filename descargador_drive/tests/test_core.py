@@ -215,8 +215,10 @@ class DriveTest(unittest.TestCase):
         logs = []
         d = drive_core.Downloader("https://drive.google.com/drive/folders/root?usp=sharing",
                                   self.dest, workers=3, log=logs.append)
+        self.assertEqual(d.stats.percent(), 0.0)
         failed = d.run()
         self.assertEqual(failed, [], "\n".join(logs))
+        self.assertEqual(d.stats.percent(), 100.0)
         self.check_tree()
         self.assertGreaterEqual(self.srv.state.drops.get("bigB", 0), 3)
 
@@ -232,6 +234,7 @@ class DriveTest(unittest.TestCase):
                                   api_key="KEY", workers=2, log=logs.append)
         self.assertEqual(d.run(), [], "\n".join(logs))
         self.check_tree(with_quota=False)
+        self.assertEqual(d.stats.percent(), 100.0)
 
     def test_reanuda_part(self):
         root = os.path.join(self.dest, "Mi Carpeta_ pruebas")
@@ -250,6 +253,20 @@ class DriveTest(unittest.TestCase):
         d = drive_core.Downloader("https://drive.google.com/drive/folders/root", self.dest, log=lambda m: None)
         d.stop()
         self.assertIsNone(d.run())
+
+
+class PercentTest(unittest.TestCase):
+    def test_por_bytes_si_se_saben_los_tamanos(self):
+        st = drive_core.Stats()
+        st.total_files, st.total_bytes, st.done_bytes, st.sizes_known = 4, 1000, 250, True
+        self.assertAlmostEqual(st.percent(), 25.0)
+
+    def test_por_archivos_si_no(self):
+        st = drive_core.Stats()
+        st.total_files, st.done_files = 4, 1
+        st.active = {"x": ("x", 50, 100)}  # uno a la mitad
+        st.total_bytes = 100  # tamaño conocido sólo de uno: no se usa
+        self.assertAlmostEqual(st.percent(), 37.5)
 
 
 class UtilTest(unittest.TestCase):

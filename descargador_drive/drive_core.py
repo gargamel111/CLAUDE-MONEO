@@ -180,7 +180,23 @@ class Stats:
         self.done_bytes = 0
         self.session_bytes = 0
         self.active = {}  # id -> (nombre, bajado, total)
+        self.sizes_known = False  # con API key se sabe el tamaño de todo desde el inicio
         self._speed_samples = []
+
+    def percent(self):
+        """Avance total de 0 a 100."""
+        with self.lock:
+            if self.phase == "Terminado" and not self.failed:
+                return 100.0
+            if self.total_files == 0:
+                return 0.0
+            if self.sizes_known and self.total_bytes > 0:
+                return min(100.0, 100.0 * self.done_bytes / self.total_bytes)
+            # Sin tamaños: cada archivo vale lo mismo y los que se están
+            # bajando cuentan por la parte que ya llevan.
+            partial = sum(w / t for _, w, t in self.active.values() if t)
+            done = self.done_files + len(self.failed) + min(partial, len(self.active))
+            return min(100.0, 100.0 * done / self.total_files)
 
     def add_bytes(self, item, n, written, total):
         with self.lock:
@@ -685,6 +701,7 @@ class Downloader:
                 with self.stats.lock:
                     self.stats.total_files = len(files)
                     self.stats.total_bytes = sum(f.size or 0 for f in files)
+                    self.stats.sizes_known = all(f.size is not None for f in files)
                     self.stats.phase = "Descargando"
                 self.log(f"{len(files)} archivos en total. Guardando en: {self.base_dir}")
 
