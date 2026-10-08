@@ -1,0 +1,46 @@
+name: Compilar Descargador de Drive (Windows)
+
+on:
+  push:
+    paths:
+      - "descargador_drive/**"
+      - ".github/workflows/descargador-windows.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependencias
+        run: pip install -r descargador_drive/requirements.txt pyinstaller
+
+      - name: Pruebas
+        run: python -m unittest discover -s descargador_drive/tests -v
+
+      - name: Crear .exe
+        run: pyinstaller --onefile --windowed --name DescargadorDrive descargador_drive/descargador_drive.py
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DescargadorDrive
+          path: dist/DescargadorDrive.exe
+
+      - name: Publicar en Releases
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete descargador-drive --yes --cleanup-tag || true
+          gh release create descargador-drive dist/DescargadorDrive.exe \
+            --target "${{ github.sha }}" \
+            --title "Descargador de Drive (última versión)" \
+            --notes "Descarga DescargadorDrive.exe y ábrelo. No necesita instalación."
