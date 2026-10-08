@@ -3,3 +3,6 @@ __pycache__/
 build/
 dist/
 *.spec
+dist-portable/
+build-portable/
+salida/

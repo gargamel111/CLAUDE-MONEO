@@ -15,10 +15,17 @@ La primera vez te guía paso a paso para sacar tu API key de Google (ver abajo).
 
 ## Descargar el programa
 
-Ve a la pestaña **Releases** del repositorio y baja `DescargadorDrive.exe`.
-No necesita instalación. Si Windows muestra "Windows protegió su PC", dale a
-**Más información → Ejecutar de todas formas** (sale porque el programa no
-está firmado).
+En la pestaña **Releases** del repositorio hay dos opciones:
+
+- **`DescargadorDrive-Instalador.exe` (recomendado):** lo instala como
+  cualquier programa de Windows, sin pedir permisos de administrador. Queda
+  en el menú Inicio (y en el escritorio si lo eliges) y se desinstala desde
+  **Configuración → Aplicaciones**. Para actualizar, instala la versión nueva
+  encima; tu API key y tus ajustes se mantienen.
+- **`DescargadorDrive.exe` (portátil):** funciona sin instalar nada.
+
+Si Windows muestra "Windows protegió su PC", dale a **Más información →
+Ejecutar de todas formas** (sale porque el programa no está firmado).
 
 ## Por qué no se cae
 

@@ -13,6 +13,8 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
+    env:
+      APP_VERSION: 1.0.${{ github.run_number }}
     steps:
       - uses: actions/checkout@v4
 
@@ -30,21 +32,70 @@ jobs:
         timeout-minutes: 3
         run: python descargador_drive/descargador_drive.py --smoke
 
-      - name: Crear .exe
-        run: pyinstaller --onefile --windowed --name DescargadorDrive --add-data "descargador_drive/ui;ui" --collect-all webview descargador_drive/descargador_drive.py
+      - name: Crear el programa (carpeta, para el instalador)
+        run: >
+          pyinstaller --noconfirm --onedir --windowed --name DescargadorDrive
+          --icon descargador_drive/instalador/icono.ico
+          --add-data "descargador_drive/ui;ui" --collect-all webview
+          descargador_drive/descargador_drive.py
 
-      - name: Probar que el .exe abre
-        timeout-minutes: 3
+      - name: Crear el .exe portátil (un solo archivo)
+        run: >
+          pyinstaller --noconfirm --onefile --windowed --name DescargadorDrive
+          --icon descargador_drive/instalador/icono.ico
+          --add-data "descargador_drive/ui;ui" --collect-all webview
+          --distpath dist-portable --workpath build-portable
+          descargador_drive/descargador_drive.py
+
+      - name: Probar que los .exe abren
+        timeout-minutes: 4
         shell: pwsh
         run: |
-          $p = Start-Process -FilePath dist/DescargadorDrive.exe -ArgumentList "--smoke" -Wait -PassThru
-          if ($p.ExitCode -ne 0) { throw "El .exe no abrió bien (código $($p.ExitCode))" }
-          Write-Host "El .exe abre bien"
+          foreach ($exe in @("dist/DescargadorDrive/DescargadorDrive.exe", "dist-portable/DescargadorDrive.exe")) {
+            $p = Start-Process -FilePath $exe -ArgumentList "--smoke" -Wait -PassThru
+            if ($p.ExitCode -ne 0) { throw "$exe no abrió bien (código $($p.ExitCode))" }
+            Write-Host "$exe abre bien"
+          }
+
+      - name: Crear el instalador
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup -y --no-progress
+          }
+          & $iscc "/DAppVersion=$env:APP_VERSION" descargador_drive/instalador/instalador.iss
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup falló" }
+
+      - name: Probar instalar, abrir y desinstalar
+        timeout-minutes: 5
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath dist/DescargadorDrive-Instalador.exe -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "La instalación falló ($($p.ExitCode))" }
+          $dir = Join-Path $env:LOCALAPPDATA "Programs\Descargador de Drive"
+          $exe = Join-Path $dir "DescargadorDrive.exe"
+          if (-not (Test-Path $exe)) { throw "No quedó instalado en $dir" }
+          $menu = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\Descargador de Drive.lnk"
+          if (-not (Test-Path $menu)) { throw "No se creó el acceso en el menú Inicio" }
+          $p = Start-Process -FilePath $exe -ArgumentList "--smoke" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "El programa instalado no abrió ($($p.ExitCode))" }
+          $p = Start-Process -FilePath (Join-Path $dir "unins000.exe") -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES" -Wait -PassThru
+          Start-Sleep -Seconds 3
+          if (Test-Path $exe) { throw "No se desinstaló" }
+          Write-Host "Instala, abre y se desinstala bien"
+
+      - name: Juntar archivos
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force salida | Out-Null
+          Copy-Item dist/DescargadorDrive-Instalador.exe salida/
+          Copy-Item dist-portable/DescargadorDrive.exe salida/
 
       - uses: actions/upload-artifact@v4
         with:
           name: DescargadorDrive
-          path: dist/DescargadorDrive.exe
+          path: salida/*.exe
 
       - name: Publicar en Releases
         shell: bash
@@ -52,14 +103,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           # Se reutiliza el mismo release (en vez de borrarlo y crearlo) para
-          # que el link de descarga nunca deje de funcionar.
-          if gh release view descargador-drive > /dev/null 2>&1; then
-            gh release upload descargador-drive dist/DescargadorDrive.exe --clobber
-          else
-            gh release create descargador-drive dist/DescargadorDrive.exe \
-              --target "${{ github.sha }}" \
-              --title "Descargador de Drive (última versión)" \
-              --notes "Descarga DescargadorDrive.exe y ábrelo. No necesita instalación."
+          # que los links de descarga nunca dejen de funcionar.
+          if ! gh release view descargador-drive > /dev/null 2>&1; then
+            gh release create descargador-drive --target "${{ github.sha }}" \
+              --title "Descargador de Drive" --notes "Descargando..."
           fi
-          gh release edit descargador-drive --draft=false --latest
+          gh release upload descargador-drive salida/DescargadorDrive-Instalador.exe salida/DescargadorDrive.exe --clobber
+          gh release edit descargador-drive --draft=false --latest \
+            --title "Descargador de Drive ${APP_VERSION}" \
+            --notes "**Instalador (recomendado):** baja DescargadorDrive-Instalador.exe y ábrelo. Queda en el menú Inicio y se desinstala desde Configuración → Aplicaciones.
+
+          **Portátil:** DescargadorDrive.exe funciona sin instalar."
           gh release view descargador-drive --json isDraft,assets --jq '"borrador=\(.isDraft) archivos=\([.assets[].name] | join(","))"'
