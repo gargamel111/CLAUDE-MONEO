@@ -9,6 +9,12 @@ from tkinter import filedialog, messagebox, ttk
 
 import drive_core
 
+try:
+    # Lo crea GitHub Actions al compilar, a partir del secreto DRIVE_API_KEY.
+    from _clave_incluida import API_KEY as CLAVE_INCLUIDA
+except ImportError:
+    CLAVE_INCLUIDA = ""
+
 APP_NAME = "Descargador de Drive"
 CONFIG = os.path.join(os.environ.get("APPDATA") or os.path.expanduser("~"),
                       "descargador_drive.json")
@@ -70,9 +76,11 @@ class App:
         self.workers = tk.IntVar(value=cfg.get("workers", 3))
         ttk.Spinbox(adv, from_=1, to=8, width=4, textvariable=self.workers).grid(
             row=0, column=3, padx=(8, 0))
-        ttk.Label(adv, foreground="#666",
-                  text="Sin API key funciona igual. Úsala si la carpeta tiene muchísimos "
-                       "archivos por carpeta (más de 50).").grid(
+        hint = ("Este programa ya trae una API key incluida: deja el campo vacío para usarla."
+                if CLAVE_INCLUIDA else
+                "Sin API key funciona igual. Úsala si la carpeta tiene muchísimos "
+                "archivos por carpeta (más de 50).")
+        ttk.Label(adv, foreground="#666", text=hint).grid(
             row=1, column=0, columnspan=4, sticky="w", pady=(4, 0))
 
         buttons = ttk.Frame(main)
@@ -137,7 +145,8 @@ class App:
         except (tk.TclError, ValueError):
             workers = 3
         try:
-            self.downloader = drive_core.Downloader(link, dest, self.api_key.get(), workers,
+            key = self.api_key.get().strip() or CLAVE_INCLUIDA
+            self.downloader = drive_core.Downloader(link, dest, key, workers,
                                                     log=self.logs.put)
         except ValueError as e:
             return messagebox.showerror(APP_NAME, str(e))

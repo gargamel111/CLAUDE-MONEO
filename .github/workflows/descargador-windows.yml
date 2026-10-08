@@ -23,6 +23,18 @@ jobs:
       - name: Instalar dependencias
         run: pip install -r descargador_drive/requirements.txt pyinstaller
 
+      - name: Incluir API key (secreto DRIVE_API_KEY)
+        shell: bash
+        env:
+          DRIVE_API_KEY: ${{ secrets.DRIVE_API_KEY }}
+        run: |
+          if [ -n "$DRIVE_API_KEY" ]; then
+            printf 'API_KEY = "%s"\n' "$DRIVE_API_KEY" > descargador_drive/_clave_incluida.py
+            echo "API key incluida en el programa."
+          else
+            echo "No hay secreto DRIVE_API_KEY: el programa sale sin API key incluida."
+          fi
+
       - name: Pruebas
         run: python -m unittest discover -s descargador_drive/tests -v
 

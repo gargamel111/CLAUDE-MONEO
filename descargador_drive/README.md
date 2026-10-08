@@ -49,6 +49,17 @@ elementos de cada carpeta. Si una carpeta tiene más, pon una API key en
 2. Ve a **APIs y servicios → Credenciales → Crear credenciales → Clave de API**.
 3. Copia la clave en el programa. Se guarda para la próxima vez.
 
+### Incluir la API key en el .exe
+
+Para no tener que pegarla, guárdala como secreto en GitHub: **Settings →
+Secrets and variables → Actions → New repository secret**, con el nombre
+`DRIVE_API_KEY`. Luego, en **Actions**, vuelve a correr el workflow
+"Compilar Descargador de Drive (Windows)". El nuevo .exe la trae incluida.
+
+La clave nunca queda en el código del repo. Pero el .exe de Releases es
+público y alguien podría sacarla de ahí, así que restríngela a
+"Google Drive API" en Google Cloud.
+
 ## Correrlo con Python (sin el .exe)
 
 ```
