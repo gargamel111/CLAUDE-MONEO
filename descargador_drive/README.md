@@ -7,7 +7,11 @@ con todas sus subcarpetas, pese lo que pese.
 2. Elige dónde guardarla.
 3. Dale a **Descargar**.
 
-La primera vez te pide tu API key de Google (ver abajo).
+La primera vez te guía paso a paso para sacar tu API key de Google (ver abajo).
+
+| Paso a paso | Descargando |
+| --- | --- |
+| ![Paso a paso](capturas/claro-paso3.png) | ![Descargando](capturas/claro-principal-descargando.png) |
 
 ## Descargar el programa
 
@@ -42,7 +46,9 @@ Tiene que estar compartida como **"Cualquier persona con el enlace"**.
 
 ## API key de Google
 
-La primera vez que abres el programa te pide tu API key. Cada persona usa la
+La primera vez que abres el programa, antes de todo, te lleva paso a paso
+para sacar tu API key, con un dibujo de cada pantalla de Google Cloud y lo que
+hay que tocar marcado en naranja. Cada persona usa la
 suya: es gratis, se saca una sola vez y queda guardada solo en esa compu. Con
 ella el programa ve todos los archivos de cada carpeta, sin el límite de 50.
 

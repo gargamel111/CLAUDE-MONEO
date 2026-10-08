@@ -800,7 +800,8 @@ def _check_api(r):
 def _api_error(r):
     text = r.text
     if "API key not valid" in text or "API_KEY_INVALID" in text:
-        return "La API key no es válida. Revisa que la copiaste completa (botón 'Cambiar…')."
+        return ("La API key no es válida. Revisa que la copiaste completa. "
+                "Si la acabas de crear, espera 1 minuto y vuelve a intentar.")
     if "SERVICE_DISABLED" in text or "has not been used in project" in text:
         return ("Tu API key funciona, pero falta habilitar 'Google Drive API' en tu proyecto "
                 "de Google Cloud. Habilítala, espera un par de minutos y vuelve a intentar.")
@@ -814,6 +815,25 @@ def _api_error(r):
     if r.status_code == 404:
         msg += " (¿la carpeta está compartida como 'Cualquier persona con el enlace'?)"
     return f"HTTP {r.status_code}: {msg}"
+
+
+def check_api_key(key, timeout=15):
+    """Comprueba una API key pidiendo a Drive un archivo que no existe.
+
+    Devuelve (True, "") si funciona, (False, motivo) si no, y (None, motivo)
+    si no se pudo comprobar (sin internet o Google caído).
+    """
+    try:
+        r = requests.get(f"{API_URL}/files/{'0' * 33}",
+                         params={"key": key, "fields": "id"},
+                         headers={"User-Agent": USER_AGENT}, timeout=timeout)
+    except requests.RequestException:
+        return None, "No pude comprobarla porque no hay conexión a internet."
+    if r.status_code in (200, 404):
+        return True, ""
+    if r.status_code >= 500 or "rateLimitExceeded" in r.text:
+        return None, "Google no respondió bien ahora mismo."
+    return False, _api_error(r)
 
 
 def _dedupe(name, used):
