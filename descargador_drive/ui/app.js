@@ -297,16 +297,30 @@ function openLog() {
 /* ---------------- Paso a paso de la API key ---------------- */
 
 const tap = (n, html) => `<span class="tap" data-n="${n}">${html}</span>`;
-const browser = (pane) => `
+
+/* Dibujo aproximado de la consola de Google Cloud: barra de arriba con el
+   proyecto, menú de la izquierda de «APIs y servicios» y, si hace falta, el
+   panel que se abre a la derecha. */
+const SIDE = ["APIs y servicios habilitados", "Biblioteca", "Credenciales", "Pantalla de consentimiento"];
+const consoleMock = ({ proj, side, main, panel, url = "console.cloud.google.com" }) => `
   <div class="mock" aria-hidden="true">
-    <div class="chrome"><i style="background:#FF5F57"></i><i style="background:#FEBC2E"></i><i style="background:#28C840"></i><div class="url">console.cloud.google.com</div></div>
-    <div class="gbar"><span class="glogo"><i style="background:#4285F4"></i><i style="background:#EA4335"></i><i style="background:#FBBC04"></i><i style="background:#34A853"></i></span>Google Cloud
-      ${pane.proj ? tap(pane.proj, `<span class="proj">descargador ▾</span>`) : `<span class="proj">descargador ▾</span>`}</div>
-    <div class="pane">${pane.html}</div>
+    <div class="chrome"><i style="background:#FF5F57"></i><i style="background:#FEBC2E"></i><i style="background:#28C840"></i><div class="url">${url}</div></div>
+    <div class="gbar"><span class="burger">≡</span><span class="glogo"><i style="background:#4285F4"></i><i style="background:#EA4335"></i><i style="background:#FBBC04"></i><i style="background:#34A853"></i></span>Google Cloud
+      ${proj ? tap(proj, `<span class="proj">⁘ descargador ▾</span>`) : `<span class="proj">⁘ descargador ▾</span>`}
+      <span class="search">Buscar recursos, documentos, productos y más</span></div>
+    <div class="cx${side ? "" : " noside"}">
+      ${side ? `<div class="side"><div class="side-title">APIs y servicios</div>${SIDE.map((s) => `<div class="${s === side ? "on" : ""}">${s}</div>`).join("")}</div>` : ""}
+      <div class="pane">${main}</div>
+      ${panel ? `<div class="gpanel">${panel}</div>` : ""}
+    </div>
   </div>
-  <div class="caption">Así se ve más o menos. Puede cambiar un poco según tu cuenta.</div>`;
+  <div class="caption">Así se ve más o menos. Si tu Google está en modo oscuro, lo verás con fondo negro.</div>`;
 
 const DRIVE_SVG = `<svg class="drive" viewBox="0 0 34 30"><path d="M11 0h12l11 19H22z" fill="#FBBC04"/><path d="M11 0 0 19l6 11 11-19z" fill="#0F9D58"/><path d="M6 30h22l6-11H12z" fill="#4285F4"/></svg>`;
+const CRED_MAIN = (n) => `
+  <div class="toolbar"><b>Credenciales</b>${n ? tap(n, `<span class="tlink">+ Crear credenciales ▾</span>`) : `<span class="tlink">+ Crear credenciales ▾</span>`}<span class="tmuted">Borrar</span></div>
+  <div class="small" style="margin-top:12px">Claves de API</div>
+  <div class="row-empty">No hay claves de API para mostrar</div>`;
 
 const STEPS = [
   {
@@ -318,7 +332,7 @@ const STEPS = [
       <div class="overview">
         <div class="tile"><div class="t-label">Crear un proyecto</div><div class="t-value"><b>01</b></div></div>
         <div class="tile mesh"><div class="t-label">Activar Drive API</div><div class="t-value"><b>02</b></div></div>
-        <div class="tile red"><div class="t-label">Crear la clave</div><div class="t-value"><b>03</b></div></div>
+        <div class="tile red"><div class="t-label">Crear y copiar la clave</div><div class="t-value"><b>03</b></div></div>
         <div class="tile blue"><div class="t-label">Pegarla aquí</div><div class="t-value"><b>04</b></div></div>
       </div>`,
     next: "Empezar",
@@ -330,12 +344,13 @@ const STEPS = [
       <h1 id="wz-title">Crea un proyecto</h1>
       <div class="wz-row"><ol>
         <li><span>Dale a <b>Abrir Google Cloud</b> y entra con tu cuenta de Google.</span></li>
-        <li><span>Ponle cualquier nombre, por ejemplo <b>descargador</b>.</span></li>
+        <li><span>En <b>Nombre del proyecto</b> escribe <b>descargador</b>.</span></li>
         <li><span>Dale a <b>Crear</b> y espera unos segundos.</span></li>
       </ol><button class="btn" data-url="project">Abrir Google Cloud <span class="arrow">${icon("arrow")}</span></button></div>
-      ${browser({ html: `<h4>Nuevo proyecto</h4><div class="small">Nombre del proyecto *</div>
-        ${tap(2, `<div class="gfield">descargador</div>`)}<div style="height:18px"></div>${tap(3, `<span class="gbtn">CREAR</span>`)}` })}
-      <div class="hint">${icon("info")}<span>Si es tu primera vez, Google te pide aceptar sus términos. Acéptalos y sigue.</span></div>`,
+      ${consoleMock({ url: "console.cloud.google.com/projectcreate", main: `<h4>Nuevo proyecto</h4><div class="small">Nombre del proyecto *</div>
+        ${tap(2, `<div class="gfield">descargador</div>`)}<div class="small" style="margin:14px 0 6px">Ubicación</div><div class="gfield plain">Sin organización</div>
+        <div style="margin-top:16px;display:flex;gap:10px">${tap(3, `<span class="gbtn">Crear</span>`)}<span class="gbtn flat">Cancelar</span></div>` })}
+      <div class="hint">${icon("info")}<span>Si es tu primera vez, Google te pide aceptar sus términos. Acéptalos y sigue. «Ubicación» déjala como está.</span></div>`,
     next: "Ya lo creé",
   },
   {
@@ -345,57 +360,74 @@ const STEPS = [
       <h1 id="wz-title">Activa Google Drive API</h1>
       <div class="wz-row"><ol>
         <li><span>Dale a <b>Abrir Google Drive API</b>.</span></li>
-        <li><span>Arriba, revisa que esté elegido tu proyecto <b>descargador</b>.</span></li>
+        <li><span>Arriba, al lado de «Google Cloud», revisa que diga <b>descargador</b>.</span></li>
         <li><span>Dale al botón azul <b>Habilitar</b>.</span></li>
       </ol><button class="btn" data-url="driveApi">Abrir Drive API <span class="arrow">${icon("arrow")}</span></button></div>
-      ${browser({ proj: 2, html: `<div style="display:flex;gap:14px;align-items:center">${DRIVE_SVG}<div><h4 style="margin:0">Google Drive API</h4><div class="small" style="margin:2px 0 0">Google Enterprise API</div></div></div>
-        <div style="margin:18px 0 0 48px;display:flex;gap:14px">${tap(3, `<span class="gbtn">HABILITAR</span>`)}<span class="gbtn flat">PROBAR ESTA API</span></div>` })}
+      ${consoleMock({ proj: 2, side: "Biblioteca", main: `<div style="display:flex;gap:14px;align-items:center">${DRIVE_SVG}<div><h4 style="margin:0">Google Drive API</h4><div class="small" style="margin:2px 0 0">Google Enterprise API</div></div></div>
+        <div style="margin:18px 0 0 48px;display:flex;gap:12px">${tap(3, `<span class="gbtn">Habilitar</span>`)}<span class="gbtn flat">Probar esta API</span></div>` })}
       <div class="hint">${icon("info")}<span>Si en vez de «Habilitar» dice «Administrar», ya está activada. Sigue.</span></div>`,
     next: "Ya la activé",
   },
   {
-    rail: "Crear la clave",
+    rail: "Abrir el formulario",
     render: () => `
       <div class="eyebrow">Paso 3 de 6</div>
-      <h1 id="wz-title">Crea tu API key</h1>
+      <h1 id="wz-title">Pide una clave nueva</h1>
       <div class="wz-row"><ol>
-        <li><span>Dale a <b>Abrir Credenciales</b>.</span></li>
-        <li><span>Arriba, dale a <b>+ Crear credenciales</b> y elige <b>Clave de API</b>.</span></li>
-        <li><span>Si te pregunta qué API va a usar, elige <b>Google Drive API</b>.</span></li>
+        <li><span>Dale a <b>Abrir Credenciales</b>. A la izquierda tiene que estar marcado <b>Credenciales</b>.</span></li>
+        <li><span>Arriba, dale a <b>+ Crear credenciales</b>.</span></li>
+        <li><span>En el menú que se abre, elige <b>Clave de API</b>.</span></li>
       </ol><button class="btn" data-url="credentials">Abrir Credenciales <span class="arrow">${icon("arrow")}</span></button></div>
-      ${browser({ html: `<div style="display:flex;align-items:center;gap:26px"><h4 style="margin:0">Credenciales</h4>${tap(2, `<span style="color:#1A73E8;font-size:13px;font-weight:700;padding:6px 4px">+ CREAR CREDENCIALES</span>`)}</div>
-        <div style="margin-left:150px">${`<div class="menu"><div class="sel">${tap(3, `<span style="padding:0 2px">Clave de API</span>`)}</div><div>ID de cliente de OAuth</div><div>Cuenta de servicio</div></div>`}</div>` })}`,
+      ${consoleMock({ side: "Credenciales", main: `${CRED_MAIN(2)}
+        <div class="menu floating"><div class="sel">${tap(3, `<span style="padding:0 2px">Clave de API</span>`)}</div><div>ID de cliente de OAuth</div><div>Cuenta de servicio</div><div>Ayúdame a elegir</div></div>` })}
+      <div class="hint">${icon("info")}<span>¿Un aviso amarillo sobre la «pantalla de consentimiento de OAuth»? Ignóralo.</span></div>`,
     next: "Siguiente",
+  },
+  {
+    rail: "Llenar y crear",
+    render: () => `
+      <div class="eyebrow">Paso 4 de 6</div>
+      <h1 id="wz-title">Llena el panel «Crear clave de API»</h1>
+      <div class="wz-split">
+        <ol>
+          <li><span><b>Nombre</b>: déjalo como está.</span></li>
+          <li><span>En <b>Elige las restricciones de API</b>, abre la lista y marca <b>Google Drive API</b>.</span></li>
+          <li><span><b>Restricciones de aplicaciones</b>: déjalo en <b>Ninguno</b>.</span></li>
+          <li><span>Baja hasta el final del panel y dale a <b>Crear</b>.</span></li>
+        </ol>
+        <div class="hint" style="grid-column:1;margin-top:-6px">${icon("info")}<span>¿Sale <b>«Se debe seleccionar una API»</b>? Falta marcar Google Drive API en esa lista (si no aparece, vuelve al paso 2). El recuadro sobre «cuenta de servicio» y Gemini no te afecta.</span></div>
+        <div>
+          <div class="mock" aria-hidden="true"><div class="gpanel static">
+            <div class="ptitle">Crear clave de API <span>✕</span></div>
+            <div class="small">Nombre *</div><div class="gfield plain">Clave de API 1</div>
+            <div class="psub">APIs a las que se puede acceder con esta clave</div>
+            <div class="small">Elige las restricciones de API *</div>
+            <div style="height:6px"></div>${tap(2, `<div class="gselect"><span>Google Drive API</span>▾</div>`)}
+            <div class="opts"><div class="opt on"><i></i>Google Drive API</div></div>
+            <div class="psub">Restricciones de aplicaciones</div>
+            <div style="height:6px"></div>${tap(3, `<div class="radio on" style="margin:2px 4px"><i></i>Ninguno</div>`)}
+            <div class="small" style="margin:10px 0 0">⋮</div>
+            <div style="margin-top:6px">${tap(4, `<span class="gbtn">Crear</span>`)}</div>
+          </div></div>
+          <div class="caption">El panel que se abre a la derecha, más o menos.</div>
+        </div>
+      </div>
+      `,
+    next: "Ya la creé",
   },
   {
     rail: "Copiar la clave",
     render: () => `
-      <div class="eyebrow">Paso 4 de 6</div>
+      <div class="eyebrow">Paso 5 de 6</div>
       <h1 id="wz-title">Copia tu API key</h1>
-      <p class="lead">Google te muestra la clave en una ventanita. Dale al botón de <b>copiar</b> que está a la derecha de la clave.</p>
-      ${browser({ html: `<h4>Se creó la clave de API</h4><div class="small">Tu clave de API</div>
-        <div class="keyline"><code>AIzaSyB3x••••••••••••••••••••••••Qk</code>${tap(4, `<span class="copy"><svg class="i"><use href="#i-paste"/></svg></span>`)}</div>
-        <div style="margin-top:16px"><span class="gbtn flat">CERRAR</span></div>` })}
-      <div class="hint">${icon("info")}<span>La clave empieza con «AIza» (con i mayúscula). Si cerraste la ventanita, la ves de nuevo en Credenciales → «Mostrar clave».</span></div>`,
+      <p class="lead">Al darle a Crear, Google te muestra la clave. Dale al botón de <b>copiar</b> que está a su derecha.</p>
+      ${consoleMock({ side: "Credenciales", main: CRED_MAIN(), panel: `
+        <div class="ptitle">Clave de API creada <span>✕</span></div>
+        <div class="small">Tu clave de API</div>
+        <div class="keyline"><code>AIzaSyB3x••••••••••Qk</code>${tap(5, `<span class="copy"><svg class="i"><use href="#i-paste"/></svg></span>`)}</div>
+        <div style="margin-top:14px"><span class="gbtn flat">Cerrar</span></div>` })}
+      <div class="hint">${icon("info")}<span>La clave empieza con «AIza» (con i mayúscula). Si cerraste el panel, en Credenciales → «Claves de API» dale a <b>Mostrar clave</b> al lado de tu clave.</span></div>`,
     next: "Ya la copié",
-  },
-  {
-    rail: "Protegerla",
-    render: () => `
-      <div class="eyebrow">Paso 5 de 6 · recomendado</div>
-      <h1 id="wz-title">Protégela</h1>
-      <div class="wz-row"><ol>
-        <li><span>En Credenciales, haz clic en el nombre de tu clave.</span></li>
-        <li><span>En <b>Restricciones de API</b>, elige <b>Restringir clave</b>.</span></li>
-        <li><span>Marca solo <b>Google Drive API</b> y dale a <b>Guardar</b>.</span></li>
-      </ol><button class="btn" data-url="credentials">Abrir Credenciales <span class="arrow">${icon("arrow")}</span></button></div>
-      ${browser({ html: `<h4>Restricciones de API</h4>
-        <div style="display:flex;gap:40px;align-items:center"><div><div class="radio"><i></i>No restringir clave</div><div style="height:10px"></div>${tap(2, `<div class="radio on" style="margin:4px 6px"><i></i>Restringir clave</div>`)}</div>
-        ${tap(3, `<span class="check"><i></i>Google Drive API</span>`)}</div>
-        <div style="margin-top:16px">${tap(4, `<span class="gbtn">GUARDAR</span>`)}</div>` })}
-      <div class="hint">${icon("info")}<span>Así, aunque alguien viera tu clave, solo le serviría para Google Drive.</span></div>`,
-    next: "Ya la protegí",
-    skip: true,
   },
   {
     rail: "Pegarla aquí",
